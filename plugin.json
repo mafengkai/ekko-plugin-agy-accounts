@@ -1,9 +1,9 @@
 {
   "id": "agy-accounts",
   "name": "反重力多账号",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "apiVersion": 1,
-  "description": "以官方 agy CLI 为引擎的反重力智能体，自带 Google 账号库与模型目录：会话内可切换账号与模型，账号凭据只保存在插件私有目录。",
+  "description": "以官方 agy CLI 为引擎的反重力智能体，自带 Google 账号库与模型目录：网页内 OAuth 导入、凭据验证、会话内切换账号与模型，凭据只存在插件私有目录。",
   "author": {
     "name": "mafengkai",
     "url": "https://github.com/mafengkai"
@@ -15,7 +15,14 @@
   "license": "MIT",
   "server": "server.mjs",
   "client": "client.mjs",
-  "permissions": ["agents", "commands", "ui", "storage.client", "api.read", "api.write"],
+  "permissions": [
+    "agents",
+    "commands",
+    "ui",
+    "storage.client",
+    "api.read",
+    "api.write"
+  ],
   "views": [
     {
       "id": "accounts",
@@ -27,8 +34,19 @@
   ],
   "navigation": {
     "settings": [
-      { "viewId": "accounts", "title": "反重力账号", "icon": "bot", "order": 60 }
+      {
+        "viewId": "accounts",
+        "title": "反重力账号",
+        "icon": "bot",
+        "order": 60
+      }
     ]
   },
-  "keywords": ["antigravity", "agy", "accounts", "反重力", "ekko-studio"]
+  "keywords": [
+    "antigravity",
+    "agy",
+    "accounts",
+    "反重力",
+    "ekko-studio"
+  ]
 }

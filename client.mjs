@@ -8,6 +8,7 @@ const CSS = `
 .agy h2 { font-size: 15px; margin: 20px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color, #e5e7eb); }
 .agy h2:first-child { margin-top: 0; }
 .agy p.hint { color: var(--text-secondary, #6b7280); margin: 4px 0 10px; font-size: 12px; }
+.agy p.hint.bad { color: #b42318; }
 .agy .row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; margin-bottom: 8px; background: var(--surface-primary, #fff); }
 .agy .row .who { flex: 1; min-width: 0; }
 .agy .row .who b { font-weight: 600; }
@@ -50,6 +51,28 @@ export async function mount(root, ctx) {
   }
 
   let state = { accounts: [], defaultAccount: '' }
+  let startOauthBtn = null
+
+  // ---------- 运行环境自检 ----------
+  const engineBox = el('div')
+  const engineHint = el('p', { className: 'hint', textContent: '正在检测 agy 引擎与授权驱动…' })
+  const recheckBtn = el('button', { textContent: '重新检测' })
+  const renderEngine = (st) => {
+    const lines = []
+    lines.push(st.agy.installed ? `引擎 agy ${st.agy.version}` : `引擎 agy 未安装（${st.agy.bin}）`)
+    lines.push(st.python.ok ? `授权驱动 ${st.python.bin} ${st.python.version}` : '授权驱动 Python 未找到')
+    lines.push(st.oauth.supported ? '无头授权：可用' : `无头授权：不可用（${st.oauth.reason}）`)
+    engineHint.textContent = lines.join('　·　')
+    engineHint.className = st.oauth.supported ? 'hint' : 'hint bad'
+    if (startOauthBtn) startOauthBtn.disabled = !st.oauth.supported
+  }
+  const refreshEngine = async () => {
+    try { renderEngine(await ctx.rpc.call('engine.status', {})) }
+    catch (e) { engineHint.textContent = `环境自检失败：${e.message}`; engineHint.className = 'hint bad' }
+  }
+  recheckBtn.onclick = () => { say('正在重新检测…'); refreshEngine() }
+  engineBox.append(el('div', { className: 'line' }, recheckBtn), engineHint)
+
   const defaultSelect = el('select')
   const accountBox = el('div')
   const modelSelect = el('select')
@@ -133,6 +156,9 @@ export async function mount(root, ctx) {
   }
 
   // ---------- 布局 ----------
+  // 0. 运行环境
+  wrap.append(el('h2', { textContent: '运行环境' }), engineBox)
+
   // 1. 默认账号
   wrap.append(el('h2', { textContent: '默认账号' }))
   wrap.append(el('p', { className: 'hint', textContent: '下拉选择的是全局默认账号，对所有反重力会话立即生效；单个会话里可用 /agy-accounts:account <id> 临时切换。' }))
@@ -147,7 +173,7 @@ export async function mount(root, ctx) {
   wrap.append(el('h2', { textContent: '添加账号（OAuth 授权）' }))
   wrap.append(el('p', { className: 'hint', textContent: '点「获取授权链接」，在浏览器打开链接登录 Google 账号，授权后把授权码粘贴回来即可自动导入。' }))
   const oauthBox = el('div')
-  const startOauthBtn = el('button', { className: 'primary', textContent: '获取授权链接' })
+  startOauthBtn = el('button', { className: 'primary', textContent: '获取授权链接' })
   const oauthUrlBox = el('input', { type: 'text', placeholder: '点击上方按钮生成授权链接…', readOnly: true, className: 'urlbox' })
   oauthUrlBox.addEventListener('click', () => oauthUrlBox.select())
   oauthUrlBox.addEventListener('focus', () => oauthUrlBox.select())
@@ -270,6 +296,7 @@ export async function mount(root, ctx) {
     if (settings.defaultModel) modelSelect.value = settings.defaultModel
     if (!state.accounts.length) say('还没有账号：点「导入服务器上的登录」或粘贴 token 添加')
   } catch (e) { say(`加载失败：${e.message}`, true) }
+  await refreshEngine()
 
   return () => { root.replaceChildren() }
 }

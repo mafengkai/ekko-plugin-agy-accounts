@@ -25,6 +25,46 @@ function agyBin() {
   return process.env.AGY_BIN?.trim() || 'agy'
 }
 
+// 无头 OAuth 需要一个带 pty 模块的 Python 3；AGY_OAUTH_PYTHON 可指定解释器。
+const OAUTH_PYTHON_ENV = 'AGY_OAUTH_PYTHON'
+
+function oauthPlatform() {
+  if (process.platform === 'win32') return { supported: false, reason: 'Windows 没有 Unix PTY，无法无头驱动 agy 登录' }
+  return { supported: true, reason: '' }
+}
+
+async function resolveOauthPython() {
+  const custom = (process.env[OAUTH_PYTHON_ENV] || '').trim()
+  const candidates = custom ? [custom] : ['python3', 'python']
+  const tried = []
+  for (const bin of candidates) {
+    const res = await run(bin, ['-c', 'import sys,pty,fcntl,termios;print(sys.version.split()[0])'], { timeout: 15_000 })
+    const version = (res.out || '').trim()
+    if (res.code === 0 && version) return { ok: true, bin, version, tried }
+    const why = (res.err || res.out || '无法运行').split('\n').filter(Boolean)[0] || '无法运行'
+    tried.push(`${bin}: ${why.slice(0, 160)}`)
+  }
+  return { ok: false, bin: '', version: '', tried }
+}
+
+async function probeAgy() {
+  const res = await run(agyBin(), ['--version'], { env: process.env, timeout: 20_000 })
+  const version = (res.out || res.err).trim().split('\n')[0] || ''
+  const installed = res.code === 0 && !!version
+  return { installed, version: installed ? version : '', bin: agyBin(), error: installed ? '' : (res.err || res.out || `退出码 ${res.code}`).slice(0, 200).trim() }
+}
+
+async function engineStatus() {
+  const agy = await probeAgy()
+  const python = await resolveOauthPython()
+  const platform = oauthPlatform()
+  const reason = !platform.supported ? platform.reason
+    : !agy.installed ? `未检测到 agy CLI（${agy.bin}）`
+      : !python.ok ? '未找到可用的 Python 3（需要 pty/fcntl 模块）'
+        : ''
+  return { agy, python, platform: process.platform, oauth: { supported: !reason, reason } }
+}
+
 function globalGeminiHome() {
   const custom = process.env.AGY_GLOBAL_HOME?.trim()
   if (custom) return custom
@@ -245,6 +285,7 @@ export function apply(ctx) {
   step('commands+rpc begin')
   // ---------- RPC：设置页 ----------
   reg('accounts.list', async () => snapshot())
+  reg('engine.status', async () => engineStatus())
   reg('accounts.add', async (input) => {
     const token = parseToken(input.token)
     const email = String(input.email || token.email || '').trim()
@@ -338,19 +379,48 @@ export function apply(ctx) {
   }
 
   reg('oauth.start', async () => {
+    const platform = oauthPlatform()
+    if (!platform.supported) {
+      return { state: 'unsupported', url: '', message: `${platform.reason}。请在 macOS / Linux / WSL 里运行 Studio，或改用下方「导入服务器上的登录」「粘贴 token 添加」。` }
+    }
+    const agy = await probeAgy()
+    if (!agy.installed) {
+      return { state: 'error', url: '', message: `未检测到 agy CLI（${agy.bin}）：${agy.error || '命令不可执行'}。请先安装 Google Antigravity CLI，并确保 agy 在 PATH 中，或用环境变量 AGY_BIN 指定路径。` }
+    }
+    const python = await resolveOauthPython()
+    if (!python.ok) {
+      return { state: 'error', url: '', message: `未找到可用的 Python 3（需要 pty/fcntl 模块）${python.tried.length ? `：${python.tried.join('；')}` : ''}。请安装 python3，或用环境变量 ${OAUTH_PYTHON_ENV} 指定解释器路径。` }
+    }
     const ts = Date.now()
     const stateDir = path.join(ctx.paths.dataDir, 'oauth', String(ts))
     const home = path.join(ctx.paths.dataDir, 'oauth-home', String(ts))
     fs.mkdirSync(stateDir, { recursive: true, mode: 0o700 })
     fs.mkdirSync(home, { recursive: true, mode: 0o700 })
     oauthSession = { stateDir, home }
-    const child = spawn('python3', [oauthScript, stateDir, home], {
-      detached: true, stdio: 'ignore', env: { ...process.env, AGY_BIN: agyBin() },
+    let spawnError = ''
+    const child = spawn(python.bin, [oauthScript, stateDir, home], {
+      detached: true, stdio: 'ignore', env: { ...process.env, AGY_BIN: agyBin(), PYTHONUNBUFFERED: '1' },
     })
+    // 必须挂 error 监听：ENOENT/EACCES 会以 unhandled 'error' 事件抛出并杀掉宿主进程。
+    child.on('error', (e) => { spawnError = e.message })
     child.unref()
-    const st = await waitOauthState(['url', 'error', 'exited'], 20_000)
+    const deadline = Date.now() + 20_000
+    let st = readOauthStatus()
+    while (Date.now() < deadline) {
+      if (spawnError) break
+      st = readOauthStatus()
+      if (['url', 'error', 'exited'].includes(st.state)) break
+      await new Promise((r) => setTimeout(r, 400))
+    }
+    if (spawnError) {
+      oauthSession = null
+      return { state: 'error', url: '', message: `授权驱动进程启动失败：${spawnError}。可用「导入服务器上的登录」或「粘贴 token 添加」替代。` }
+    }
     if (st.state === 'url') return { state: 'url', url: st.url, message: '请用浏览器打开链接完成 Google 授权，然后把授权码粘贴回来' }
-    return { state: st.state, url: '', message: st.message || '授权流程启动失败，请重试' }
+    if (st.state === 'error' || st.state === 'exited') {
+      return { state: st.state, url: '', message: `${st.message || 'agy 授权进程提前退出'}。可稍后重试，或改用「导入服务器上的登录」「粘贴 token 添加」。` }
+    }
+    return { state: st.state, url: '', message: '授权链接生成超时（20 秒内未拿到 URL）。请重试；若反复超时，改用「导入服务器上的登录」或「粘贴 token 添加」。' }
   })
 
   reg('oauth.status', async () => readOauthStatus())

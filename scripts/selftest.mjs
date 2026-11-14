@@ -44,7 +44,7 @@ const { apply } = await import('../server.mjs')
 apply(ctx)
 
 assert(registrations.agents.has('antigravity'), '注册了 antigravity agent')
-assert([...registrations.rpc.keys()].sort().join(',') === 'accounts.add,accounts.default,accounts.import-global,accounts.list,accounts.remove,accounts.verify,models.list,models.set-default,oauth.complete,oauth.start,oauth.status,settings.get,settings.save', 'RPC 全部注册')
+assert([...registrations.rpc.keys()].sort().join(',') === 'accounts.add,accounts.default,accounts.import-global,accounts.list,accounts.remove,accounts.verify,engine.status,models.list,models.set-default,oauth.complete,oauth.start,oauth.status,settings.get,settings.save', 'RPC 全部注册')
 assert([...registrations.commands.keys()].sort().join(',') === 'account,model', '聊天命令注册')
 
 const agent = registrations.agents.get('antigravity')
@@ -58,6 +58,29 @@ assert(empty.status === 'auth_required' && empty.models.length === 0, '无账号
 
 const ost = await registrations.rpc.get('oauth.status')({})
 assert(ost.state === 'idle', 'oauth.status 初始为 idle')
+
+const engine = await registrations.rpc.get('engine.status')({})
+assert(engine.agy?.installed === true && typeof engine.agy.version === 'string', `engine.status 报出 agy（${engine.agy?.version}）`)
+assert(engine.python?.ok === true && /^\d+\./.test(engine.python.version), `engine.status 报出 Python 驱动（${engine.python?.bin} ${engine.python?.version}）`)
+assert(engine.oauth?.supported === true, 'engine.status 判定无头授权可用')
+
+// 回归：解释器缺失时必须返回可读错误，不能因 spawn error 未处理而崩掉宿主进程
+process.env.AGY_OAUTH_PYTHON = '/nonexistent/python3'
+const noPy = await registrations.rpc.get('oauth.start')({})
+assert(noPy.state === 'error' && /Python/.test(noPy.message), `缺 Python 时报错而非崩溃（${noPy.state}）`)
+const engineNoPy = await registrations.rpc.get('engine.status')({})
+assert(engineNoPy.python.ok === false && engineNoPy.oauth.supported === false && /Python/.test(engineNoPy.oauth.reason), 'engine.status 反映 Python 缺失')
+delete process.env.AGY_OAUTH_PYTHON
+
+// 回归：agy 缺失时给出安装指引，而不是空等 20 秒后只说“请重试”
+const realBin = process.env.AGY_BIN
+process.env.AGY_BIN = '/nonexistent/agy'
+const noAgy = await registrations.rpc.get('oauth.start')({})
+assert(noAgy.state === 'error' && /agy CLI/.test(noAgy.message), `缺 agy 时给出安装指引（${noAgy.state}）`)
+const engineNoAgy = await registrations.rpc.get('engine.status')({})
+assert(engineNoAgy.agy.installed === false && engineNoAgy.oauth.supported === false, 'engine.status 反映 agy 缺失')
+if (realBin === undefined) delete process.env.AGY_BIN
+else process.env.AGY_BIN = realBin
 
 const globalToken = path.join(process.env.AGY_GLOBAL_HOME || path.join(os.homedir(), '.gemini'), 'antigravity-cli', 'antigravity-oauth-token')
 if (fs.existsSync(globalToken)) {

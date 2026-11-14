@@ -161,6 +161,49 @@
       "required": ["state", "message", "accounts", "defaultAccount"],
       "additionalProperties": false
     },
+    "engineStatus": {
+      "type": "object",
+      "description": "运行环境自检：引擎与授权驱动是否可用。",
+      "properties": {
+        "agy": {
+          "type": "object",
+          "description": "官方 agy CLI 的探测结果。",
+          "properties": {
+            "installed": { "type": "boolean", "description": "agy 是否可执行。" },
+            "version": { "type": "string", "description": "agy 版本号，未安装时为空字符串。" },
+            "bin": { "type": "string", "description": "实际使用的可执行名或路径。" },
+            "error": { "type": "string", "description": "探测失败时的原始错误摘要。" }
+          },
+          "required": ["installed", "version", "bin", "error"],
+          "additionalProperties": false
+        },
+        "python": {
+          "type": "object",
+          "description": "无头 OAuth 驱动所需的 Python 解释器探测结果。",
+          "properties": {
+            "ok": { "type": "boolean", "description": "是否找到带 pty 模块可用的 Python 3。" },
+            "bin": { "type": "string", "description": "可用的解释器，未找到时为空字符串。" },
+            "version": { "type": "string", "description": "解释器版本。" },
+            "tried": { "type": "array", "description": "尝试过的解释器及其失败原因。", "items": { "type": "string", "description": "尝试记录。" } }
+          },
+          "required": ["ok", "bin", "version", "tried"],
+          "additionalProperties": false
+        },
+        "platform": { "type": "string", "description": "宿主平台标识，例如 linux、darwin、win32。" },
+        "oauth": {
+          "type": "object",
+          "description": "无头 OAuth 授权的整体可用性。",
+          "properties": {
+            "supported": { "type": "boolean", "description": "当前环境能否走无头授权。" },
+            "reason": { "type": "string", "description": "不可用的原因，可用时为空字符串。" }
+          },
+          "required": ["supported", "reason"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["agy", "python", "platform", "oauth"],
+      "additionalProperties": false
+    },
     "setDefaultModelInput": {
       "type": "object",
       "description": "设置默认模型并同步到所有反重力会话。",
@@ -193,6 +236,7 @@
     "models.list": { "description": "读取 agy 模型目录，refresh 为真时重新查询。", "input": "empty", "output": "modelCatalog" },
     "accounts.verify": { "description": "校验某账号的凭据是否有效（跑 agy models 探测）。", "input": "idInput", "output": "verifyResult" },
     "oauth.start": { "description": "启动一次 Google OAuth 授权，返回一次性授权链接。", "input": "empty", "output": "oauthStatus" },
+    "engine.status": { "description": "自检运行环境：agy 引擎、Python 驱动与无头授权可用性。", "input": "empty", "output": "engineStatus" },
     "oauth.status": { "description": "查询当前授权流程状态。", "input": "empty", "output": "oauthStatus" },
     "oauth.complete": { "description": "回填浏览器授权码，兑换凭据并入库。", "input": "oauthCompleteInput", "output": "oauthCompleteResult" },
     "models.set-default": { "description": "设置默认模型并同步到所有反重力会话。", "input": "setDefaultModelInput", "output": "setDefaultModelResult" }

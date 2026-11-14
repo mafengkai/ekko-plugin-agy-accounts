@@ -1,6 +1,6 @@
 {
   "name": "ekko-plugin-agy-accounts",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "description": "Antigravity (agy) agent with a local Google account pool for Ekko Studio.",
   "author": "mafengkai",
   "license": "MIT",
@@ -13,5 +13,27 @@
   "scripts": {
     "harness:check": "node scripts/harness-check.mjs",
     "test": "node scripts/selftest.mjs"
+  },
+  "files": [
+    "plugin.json",
+    "server.mjs",
+    "client.mjs",
+    "contracts/",
+    "sdk/",
+    "scripts/",
+    "docs/",
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "ekko-studio",
+    "ekko-studio-plugin",
+    "antigravity",
+    "agy",
+    "accounts"
+  ],
+  "engines": {
+    "node": ">=20"
   }
 }

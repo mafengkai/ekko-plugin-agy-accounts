@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: static check (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Manifest / contracts / syntax / secret scan
+        run: node scripts/check.mjs
+
+  install-smoke:
+    name: install smoke (npm pack → host-style install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pack and install like Ekko Studio does
+        run: |
+          npm pack --silent >/dev/null
+          mkdir -p stage
+          npm install --prefix stage --ignore-scripts --omit=dev --no-audit --no-fund ./ekko-plugin-agy-accounts-*.tgz
+          test -f stage/node_modules/ekko-plugin-agy-accounts/plugin.json
+          test -f stage/node_modules/ekko-plugin-agy-accounts/server.mjs
+          test -f stage/node_modules/ekko-plugin-agy-accounts/client.mjs
+      - name: Manifest readable from installed package
+        run: |
+          node -e "const m=require('./stage/node_modules/ekko-plugin-agy-accounts/plugin.json'); if(!m.id||!m.version) process.exit(1); console.log('installed', m.id, m.version)"
