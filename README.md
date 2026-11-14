@@ -37,18 +37,25 @@
 
 ### 方式二：通过 Studio API 安装
 
-超级管理员可调用安装端点：
+超级管理员可调用安装端点（`<studio-port>` 为 Ekko Studio 服务端口，默认 `6060`，以实际部署为准）：
 
 ```bash
-curl -X POST http://localhost:8080/api/studio/plugins/install \
-  -H "Authorization: Bearer <YOUR_ADMIN_TOKEN>" \
+curl -X POST http://127.0.0.1:<studio-port>/api/studio/plugins/install \
+  -H "Authorization: Bearer <SUPER_ADMIN_JWT>" \
   -H "Content-Type: application/json" \
   -d '{
     "source": "https://github.com/mafengkai/ekko-plugin-agy-accounts",
     "trusted": true,
+    "revision": 0,
     "expectedVersion": "1.3.3"
   }'
 ```
+
+### 零外部依赖
+
+本插件**没有任何 npm 运行时依赖**（插件 SDK 契约已内置在 `sdk/harness/contracts.mjs`），
+宿主执行 `npm install --ignore-scripts --omit=dev` 时不需要访问任何私有 registry，
+因此可以直接从 GitHub 仓库地址安装。
 
 ---
 
