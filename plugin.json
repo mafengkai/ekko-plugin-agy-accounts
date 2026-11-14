@@ -4,7 +4,6 @@
   "version": "1.3.3",
   "apiVersion": 1,
   "description": "以官方 agy CLI 为引擎的反重力智能体，自带 Google 账号库与模型目录：会话内可切换账号与模型，账号凭据只保存在插件私有目录。",
-  "icon": "bot",
   "author": {
     "name": "mafengkai",
     "url": "https://github.com/mafengkai"
