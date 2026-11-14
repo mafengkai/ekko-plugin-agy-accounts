@@ -1,0 +1,35 @@
+# Node & Package Manager
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS & Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Studio & Local Runtime Data
+*.log
+*.tmp
+*.cmd
+.git
+.env
+.env.*
+
+# Strict Security: No Accounts, Tokens or Credentials
+*.token
+*.key
+*.pem
+*.db
+*.sqlite
+accounts/
+oauth/
+oauth-home/
+plugin-data/
+settings.json
+credentials/
+tokens/

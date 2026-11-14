@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "description": "反重力多账号插件：账号库、默认设置、会话绑定的公开数据结构。",
+  "models": {
+    "empty": {
+      "type": "object",
+      "description": "无业务字段的输入。",
+      "properties": {},
+      "required": [],
+      "additionalProperties": true
+    },
+    "account": {
+      "type": "object",
+      "description": "一个可用的 Google 账号条目，凭据本身不出现在任何返回里。",
+      "properties": {
+        "id": { "type": "string", "description": "账号在插件内的稳定标识。" },
+        "email": { "type": "string", "description": "账号邮箱，未知时为空字符串。" },
+        "authMethod": { "type": "string", "description": "签发方式，例如 consumer 或 enterprise。" },
+        "hasToken": { "type": "boolean", "description": "是否已保存可用的 OAuth 凭据。" },
+        "isDefault": { "type": "boolean", "description": "是否为当前默认账号。" }
+      },
+      "required": ["id", "email", "authMethod", "hasToken", "isDefault"],
+      "additionalProperties": false
+    },
+    "accountList": {
+      "type": "object",
+      "description": "账号库快照。",
+      "properties": {
+        "accounts": { "type": "array", "description": "账号条目，按默认在前。", "items": { "type": "object", "description": "账号条目占位", "properties": {}, "required": [], "additionalProperties": true } },
+        "defaultAccount": { "type": "string", "description": "默认账号 id，未设置为空字符串。" }
+      },
+      "required": ["accounts", "defaultAccount"],
+      "additionalProperties": false
+    },
+    "addAccountInput": {
+      "type": "object",
+      "description": "导入一个账号：粘贴 agy 的 antigravity-oauth-token 文件内容。",
+      "properties": {
+        "token": { "type": "string", "description": "antigravity-oauth-token 的完整 JSON 文本。", "minLength": 2 },
+        "email": { "type": "string", "description": "可选邮箱，用于显示与去重。" },
+        "id": { "type": "string", "description": "可选账号 id，省略时按邮箱或序号生成。" }
+      },
+      "required": ["token"],
+      "additionalProperties": false
+    },
+    "idInput": {
+      "type": "object",
+      "description": "引用一个账号。",
+      "properties": { "id": { "type": "string", "description": "账号 id。" } },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "settings": {
+      "type": "object",
+      "description": "插件全局默认设置。",
+      "properties": {
+        "defaultAccount": { "type": "string", "description": "默认账号 id，空字符串表示未设置。" },
+        "defaultModel": { "type": "string", "description": "默认模型 id，空字符串表示交给 agy 决定。" },
+        "defaultEffort": { "type": "string", "description": "默认推理档位，空字符串表示不传。" },
+        "globalHome": { "type": "string", "description": "镜像用的全局反重力目录，默认 ~/.gemini。" }
+      },
+      "required": ["defaultAccount", "defaultModel", "defaultEffort", "globalHome"],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "description": "agy 目录里的一个模型变体。",
+      "properties": {
+        "id": { "type": "string", "description": "模型 id，可直接传给 agy --model。" },
+        "name": { "type": "string", "description": "展示名。" },
+        "isDefault": { "type": "boolean", "description": "是否 agy 默认模型。" }
+      },
+      "required": ["id", "name", "isDefault"],
+      "additionalProperties": false
+    },
+    "modelCatalog": {
+      "type": "object",
+      "description": "模型目录快照。",
+      "properties": {
+        "status": { "type": "string", "description": "ready/empty/not_installed/auth_required/error。" },
+        "source": { "type": "string", "description": "目录来源说明。" },
+        "message": { "type": "string", "description": "可读的状态补充说明。" },
+        "models": { "type": "array", "description": "模型变体列表。", "items": { "type": "object", "description": "模型条目占位", "properties": {}, "required": [], "additionalProperties": true } }
+      },
+      "required": ["status", "source", "message", "models"],
+      "additionalProperties": false
+    },
+    "verifyResult": {
+      "type": "object",
+      "description": "账号凭据有效性校验结果。",
+      "properties": {
+        "id": { "type": "string", "description": "被校验的账号 id。" },
+        "valid": { "type": "boolean", "description": "凭据是否有效。" },
+        "message": { "type": "string", "description": "校验结果说明。" }
+      },
+      "required": ["id", "valid", "message"],
+      "additionalProperties": false
+    },
+    "commandOutput": {
+      "type": "object",
+      "description": "聊天命令的返回文本。",
+      "properties": { "text": { "type": "string", "description": "给用户看的纯文本结果。" } },
+      "required": ["text"],
+      "additionalProperties": false
+    },
+    "rawArg": {
+      "type": "string",
+      "description": "斜杠命令的原始参数字符串。"
+    },
+    "sessionBinding": {
+      "type": "object",
+      "description": "某个 Studio 会话绑定的账号与模型覆盖值。",
+      "properties": {
+        "account": { "type": "string", "description": "该会话使用的账号 id，空字符串表示跟随默认。" },
+        "model": { "type": "string", "description": "该会话使用的模型 id，空字符串表示跟随默认。" },
+        "effort": { "type": "string", "description": "该会话使用的推理档位，空字符串表示跟随模型。" }
+      },
+      "required": ["account", "model", "effort"],
+      "additionalProperties": false
+    },
+    "agentResume": {
+      "type": "object",
+      "description": "原生对话续跑所需的检查点。",
+      "properties": {
+        "conversationId": { "type": "string", "description": "agy 原生会话 id，空字符串表示新对话。" }
+      },
+      "required": ["conversationId"],
+      "additionalProperties": false
+    },
+    "oauthStatus": {
+      "type": "object",
+      "description": "OAuth 授权流程的当前状态。",
+      "properties": {
+        "state": { "type": "string", "description": "idle/starting/menu/url/waiting_code/success/error/exited。" },
+        "url": { "type": "string", "description": "一次性授权链接，state 为 url 时有效。" },
+        "message": { "type": "string", "description": "可读的状态补充说明。" }
+      },
+      "required": ["state", "url", "message"],
+      "additionalProperties": false
+    },
+    "oauthCompleteInput": {
+      "type": "object",
+      "description": "回填浏览器授权得到的授权码。",
+      "properties": {
+        "code": { "type": "string", "description": "浏览器授权后显示的授权码。", "minLength": 1 }
+      },
+      "required": ["code"],
+      "additionalProperties": false
+    },
+    "oauthCompleteResult": {
+      "type": "object",
+      "description": "授权码兑换的结果与更新后的账号库。",
+      "properties": {
+        "state": { "type": "string", "description": "success/error/exited。" },
+        "message": { "type": "string", "description": "结果说明。" },
+        "importedId": { "type": "string", "description": "成功时新导入的账号 id。" },
+        "importedEmail": { "type": "string", "description": "成功时新导入账号的邮箱。" },
+        "accounts": { "type": "array", "description": "更新后的账号列表。", "items": { "type": "object", "description": "账号条目占位", "properties": {}, "required": [], "additionalProperties": true } },
+        "defaultAccount": { "type": "string", "description": "更新后的默认账号 id。" }
+      },
+      "required": ["state", "message", "accounts", "defaultAccount"],
+      "additionalProperties": false
+    },
+    "setDefaultModelInput": {
+      "type": "object",
+      "description": "设置默认模型并同步到所有反重力会话。",
+      "properties": {
+        "model": { "type": "string", "description": "模型 id，空字符串表示清除默认（跟随 agy 决定）。" }
+      },
+      "required": ["model"],
+      "additionalProperties": false
+    },
+    "setDefaultModelResult": {
+      "type": "object",
+      "description": "设置默认模型的执行结果与同步统计。",
+      "properties": {
+        "defaultModel": { "type": "string", "description": "保存后的默认模型 id。" },
+        "syncedCount": { "type": "number", "description": "成功同步模型的反重力会话数量。" },
+        "syncedSessions": { "type": "array", "description": "被同步的会话 id 列表。", "items": { "type": "string", "description": "会话 id。" } }
+      },
+      "required": ["defaultModel", "syncedCount", "syncedSessions"],
+      "additionalProperties": false
+    }
+  },
+  "rpc": {
+    "accounts.list": { "description": "列出账号库与默认账号。", "input": "empty", "output": "accountList" },
+    "accounts.add": { "description": "粘贴 token 导入账号。", "input": "addAccountInput", "output": "accountList" },
+    "accounts.remove": { "description": "删除账号（默认账号不可删）。", "input": "idInput", "output": "accountList" },
+    "accounts.default": { "description": "设置默认账号，空 id 表示清除。", "input": "idInput", "output": "accountList" },
+    "accounts.import-global": { "description": "从服务器上的全局 agy 登录导入一个账号。", "input": "empty", "output": "accountList" },
+    "settings.get": { "description": "读取插件默认设置。", "input": "empty", "output": "settings" },
+    "settings.save": { "description": "保存插件默认设置。", "input": "settings", "output": "settings" },
+    "models.list": { "description": "读取 agy 模型目录，refresh 为真时重新查询。", "input": "empty", "output": "modelCatalog" },
+    "accounts.verify": { "description": "校验某账号的凭据是否有效（跑 agy models 探测）。", "input": "idInput", "output": "verifyResult" },
+    "oauth.start": { "description": "启动一次 Google OAuth 授权，返回一次性授权链接。", "input": "empty", "output": "oauthStatus" },
+    "oauth.status": { "description": "查询当前授权流程状态。", "input": "empty", "output": "oauthStatus" },
+    "oauth.complete": { "description": "回填浏览器授权码，兑换凭据并入库。", "input": "oauthCompleteInput", "output": "oauthCompleteResult" },
+    "models.set-default": { "description": "设置默认模型并同步到所有反重力会话。", "input": "setDefaultModelInput", "output": "setDefaultModelResult" }
+  },
+  "tools": {},
+  "commands": {
+    "account": { "description": "查看或切换当前会话使用的 Google 账号。", "input": "rawArg", "output": "commandOutput" },
+    "model": { "description": "查看或切换当前会话使用的模型。", "input": "rawArg", "output": "commandOutput" }
+  },
+  "actions": {},
+  "events": {},
+  "storage": {
+    "binding": { "description": "会话级的账号与模型覆盖值。", "model": "sessionBinding", "version": 1, "scope": "每个 Studio 会话独立一份" }
+  },
+  "checkpoints": {
+    "resume": { "description": "原生对话 id，用于 resume 续跑。", "model": "agentResume", "version": 1, "scope": "每个原生 Agent 会话一份" }
+  }
+}
