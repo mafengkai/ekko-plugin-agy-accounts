@@ -34,6 +34,10 @@
 
 ### 方式一：Studio 插件中心（推荐）
 
+**已提交官方插件市场审核**（提交时间 2026-11-15，状态：等待管理员审核）。审核通过后会出现在插件中心「全部」目录里，直接点安装即可，无需粘贴地址。
+
+审核通过前，或想立刻使用，用下面的地址安装：
+
 1. Ekko Studio → 左下角头像 → **设置** → **插件中心** → **安装插件**
 2. 来源填入本仓库地址：
 
@@ -49,7 +53,7 @@ https://github.com/mafengkai/ekko-plugin-agy-accounts
 
 ```bash
 curl -X POST http://127.0.0.1:<studio-port>/api/studio/plugins/install \
-  -H "Authorization: Bearer <jwt>" \
+  -H "Authorization: Bearer ***" \
   -H "Content-Type: application/json" \
   -d '{
     "source": "https://github.com/mafengkai/ekko-plugin-agy-accounts",
