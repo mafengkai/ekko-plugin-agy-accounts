@@ -8,7 +8,7 @@
  *
  * 用法: node scripts/check.mjs
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -35,7 +35,26 @@ check(plugin.apiVersion === 1, 'apiVersion 为 1')
 check(typeof plugin.name === 'string' && plugin.name.length > 0, 'name 非空')
 check(typeof plugin.description === 'string' && plugin.description.length > 0, 'description 非空')
 check(!('capabilities' in plugin), '未使用已废弃的 capabilities 字段')
-check(!('icon' in plugin), '顶层 icon 未使用（只允许 views[].icon 命名图标）')
+// 顶层 icon：相对路径必须是包内真实存在的图片，且 ≤256 KB（宿主 installer 会把相对路径读成 base64 data URL）
+if (plugin.icon === undefined) {
+  console.log('ok   顶层 icon 未声明（可选）')
+} else if (/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(plugin.icon)) {
+  check(plugin.icon.length <= 350_000, '顶层 icon 是合法 base64 图片且未超长')
+} else {
+  const iconRe = /^[\w./-]+\.(?:png|jpe?g|webp|gif)$/i
+  const okPath = iconRe.test(plugin.icon) && !plugin.icon.startsWith('/') && !plugin.icon.split('/').includes('..')
+  check(okPath, '顶层 icon 是包内相对图片路径', String(plugin.icon))
+  const iconFile = join(root, plugin.icon)
+  check(existsSync(iconFile), `icon 文件存在（${plugin.icon}）`)
+  if (existsSync(iconFile)) {
+    const size = statSync(iconFile).size
+    check(size <= 256_000, `icon 体积 ≤256 KB（实际 ${size} B）`)
+    const head = readFileSync(iconFile).subarray(0, 8)
+    const isPng = head.equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    check(isPng, 'icon 文件头是真实 PNG 数据（不是占位文本）')
+    check(pkg.files.some((f) => f === plugin.icon || (f.endsWith('/') && plugin.icon.startsWith(f))), 'icon 已被 package.json files 白名单收录')
+  }
+}
 check(existsSync(join(root, plugin.server)), `server 入口存在（${plugin.server}）`)
 check(existsSync(join(root, plugin.client)), `client 入口存在（${plugin.client}）`)
 check(plugin.author && typeof plugin.author.name === 'string' && plugin.author.name.length > 0, 'author.name 存在')

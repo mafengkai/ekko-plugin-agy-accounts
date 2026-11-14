@@ -2,6 +2,16 @@
 
 遵循 [语义化版本](https://semver.org/lang/zh-CN/)。安装源固定到 commit，升级请在插件中心按仓库地址重装（或等宿主提示更新）。
 
+## 1.4.1 — 应用图标
+
+### 新增
+- 插件图标 `icon.png`（512×512 PNG，紫粉渐变底 + 上向箭头与倾斜轨道环），供插件中心、市场目录与设置导航展示。宿主会把相对路径读成 base64 data URL 注入 manifest，图标体积 33.6 KB，未超宿主的 256 KB 上限。
+
+### 工程
+- `scripts/check.mjs` 增加图标断言：路径合法、文件存在、体积上限、PNG 文件头校验、必须被 `package.json files` 白名单收录。
+- 不再保留「禁止顶层 icon」的旧断言（该限制只针对命名图标，捆绑图片路径是合法的）。
+- 图标由 `scripts/make-icon.py` 生成（纯标准库、无外部依赖），`python3 scripts/make-icon.py icon.png 512` 可逐字节复现。
+
 ## 1.4.0 — 面向公开分发
 
 ### 修复

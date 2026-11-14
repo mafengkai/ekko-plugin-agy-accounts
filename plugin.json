@@ -1,7 +1,7 @@
 {
   "id": "agy-accounts",
   "name": "反重力多账号",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "apiVersion": 1,
   "description": "以官方 agy CLI 为引擎的反重力智能体，自带 Google 账号库与模型目录：网页内 OAuth 导入、凭据验证、会话内切换账号与模型，凭据只存在插件私有目录。",
   "author": {
@@ -15,6 +15,7 @@
   "license": "MIT",
   "server": "server.mjs",
   "client": "client.mjs",
+  "icon": "icon.png",
   "permissions": [
     "agents",
     "commands",
