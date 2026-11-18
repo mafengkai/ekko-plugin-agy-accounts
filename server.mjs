@@ -71,6 +71,19 @@ function globalGeminiHome() {
   return path.join(os.homedir(), '.gemini')
 }
 
+/** 把账号 token 原子写入全局 ~/.gemini/antigravity-cli/antigravity-oauth-token。
+ *  内置「反重力」智能体（agent id=antigravity）直接读这个全局 token，不走插件账号池；
+ *  若不把默认账号 token 同步过去，切换默认账号对内置智能体不生效，会继续用旧账号导致模型错配。 */
+function syncGlobalToken(tokenText) {
+  const cliDir = path.join(globalGeminiHome(), 'antigravity-cli')
+  fs.mkdirSync(cliDir, { recursive: true, mode: 0o700 })
+  const dst = path.join(cliDir, TOKEN_FILE)
+  const tmp = `${dst}.tmp`
+  fs.writeFileSync(tmp, tokenText, { mode: 0o600 })
+  fs.renameSync(tmp, dst)
+  return true
+}
+
 function run(cmd, args, opts = {}) {
   return new Promise((resolve) => {
     const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
@@ -315,7 +328,10 @@ export function apply(ctx) {
     if (!id) id = slugId(email, accounts.ids().length + 1)
     if (!Accounts.validId(id)) throw new Error('账号 id 只能包含小写字母、数字、点、下划线、连字符')
     accounts.save(id, input.token.replace(/\r\n/g, '\n').trim() + '\n', email, token.authMethod)
-    if (!readSettings().defaultAccount) writeSettings({ ...readSettings(), defaultAccount: id })
+    if (!readSettings().defaultAccount) {
+      writeSettings({ ...readSettings(), defaultAccount: id })
+      try { syncGlobalToken(accounts.readToken(id)) } catch (e) { ctx.log.warn(`sync global token failed: ${e.message}`) }
+    }
     return snapshot()
   })
   reg('accounts.remove', async (input) => {
@@ -328,8 +344,13 @@ export function apply(ctx) {
     if (input.id && !accounts.has(input.id)) throw new Error('账号不存在')
     const prev = readSettings()
     writeSettings({ ...prev, defaultAccount: input.id })
-    // 切换默认账号后，校验当前默认模型是否仍在新账号目录中；不在则回退为空，让 agy 用该账号默认模型
     const newId = input.id || accounts.defaultId()
+    // 同步全局 token：内置「反重力」智能体读全局 ~/.gemini，不读插件账号池，必须跟着切
+    const tokenText = accounts.readToken(newId)
+    if (tokenText) {
+      try { syncGlobalToken(tokenText) } catch (e) { ctx.log.warn(`sync global token failed: ${e.message}`) }
+    }
+    // 切换默认账号后，校验当前默认模型是否仍在新账号目录中；不在则回退为空，让 agy 用该账号默认模型
     if (prev.defaultModel) {
       const available = await modelAvailable(newId, prev.defaultModel)
       if (available === false) {
@@ -481,7 +502,10 @@ export function apply(ctx) {
       let id = slugId(email, accounts.ids().length + 1)
       if (accounts.has(id)) id = `${id}-${accounts.ids().length + 1}`
       accounts.save(id, text.trim() + '\n', email, token.authMethod)
-      if (!readSettings().defaultAccount) writeSettings({ ...readSettings(), defaultAccount: id })
+      if (!readSettings().defaultAccount) {
+        writeSettings({ ...readSettings(), defaultAccount: id })
+        try { syncGlobalToken(text.trim() + '\n') } catch (e) { ctx.log.warn(`sync global token failed: ${e.message}`) }
+      }
       imported = { id, email }
     } catch (e) {
       oauthSession = null

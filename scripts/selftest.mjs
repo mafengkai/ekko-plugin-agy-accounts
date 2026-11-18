@@ -101,5 +101,17 @@ if (fs.existsSync(globalToken)) {
 
 try { await registrations.commands.get('account').execute('', { state: { session: makeStore() } }); assert(true, '账号命令可执行') } catch (e) { assert(false, `账号命令异常：${e.message}`) }
 
+// 回归：切换默认账号必须把 token 同步写入全局 ~/.gemini（内置 antigravity 智能体读全局 token，不读插件账号池）
+const ghomeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agy-global-'))
+process.env.AGY_GLOBAL_HOME = ghomeRoot
+const syncTok = JSON.stringify({ token: { access_token: 'aa', refresh_token: 'bb', token_type: 'Bearer', expiry: '2099-01-01T00:00:00Z', expires_in: 3600 }, auth_method: 'oauth', id_token_email: 'synctest@example.com' })
+await registrations.rpc.get('accounts.add')({ token: syncTok, email: 'synctest@example.com', id: 'synctest' })
+const sw = await registrations.rpc.get('accounts.default')({ id: 'synctest' })
+const gtok = path.join(ghomeRoot, 'antigravity-cli', 'antigravity-oauth-token')
+assert(sw.defaultAccount === 'synctest', '切默认账号成功')
+assert(fs.existsSync(gtok) && fs.readFileSync(gtok, 'utf8').includes('synctest@example.com'), '切默认账号同步写入全局 token')
+delete process.env.AGY_GLOBAL_HOME
+fs.rmSync(ghomeRoot, { recursive: true, force: true })
+
 fs.rmSync(dataDir, { recursive: true, force: true })
 console.log(process.exitCode ? 'SELFTEST FAILED' : 'SELFTEST PASSED')
