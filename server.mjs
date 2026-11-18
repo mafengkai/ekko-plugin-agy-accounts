@@ -265,21 +265,43 @@ export function apply(ctx) {
   const snapshot = () => ({ accounts: accounts.list(), defaultAccount: accounts.defaultId() })
   const sessionState = (run) => run.state.session
 
-  async function catalog(refresh) {
-    const id = accounts.defaultId()
+  // 每个账号的模型目录缓存（避免每次运行都调用 agy models 拉目录）
+  const catalogCache = new Map() // id -> { at: number, value: object }
+  const CATALOG_TTL = 120_000
+
+  async function catalogFor(id, refresh) {
     if (!id) return { status: 'auth_required', source: 'agy models', message: '还没有导入 Google 账号', models: [] }
-    const probeRoot = path.join(ctx.paths.dataDir, 'probe-home')
+    const cached = catalogCache.get(id)
+    if (!refresh && cached && Date.now() - cached.at < CATALOG_TTL) return cached.value
+    // 每个账号独立 probe-home，避免并发调用互相覆盖 token
+    const probeRoot = path.join(ctx.paths.dataDir, 'probe-home', id)
     fs.mkdirSync(probeRoot, { recursive: true, mode: 0o700 })
     let probe
     try { probe = prepareHome(probeRoot, accounts.readToken(id), probeRoot) } catch (e) { return { status: 'error', source: 'agy models', message: e.message, models: [] } }
     const res = await run(agyBin(), ['models'], { env: { ...process.env, HOME: probe, USERPROFILE: probe }, timeout: 60_000 })
     const defModel = readSettings().defaultModel
     const models = parseModels(res.out).map((m) => ({ ...m, isDefault: m.id === defModel }))
+    let value
     if (!models.length) {
       const hint = /sign in|authentication/i.test(res.out + res.err) ? 'auth_required' : res.code === 0 ? 'empty' : 'error'
-      return { status: hint, source: `agy models (${id})`, message: (res.err || res.out).slice(0, 400).trim(), models: [] }
+      value = { status: hint, source: `agy models (${id})`, message: (res.err || res.out).slice(0, 400).trim(), models: [] }
+    } else {
+      value = { status: 'ready', source: `agy models (${id})`, message: refresh ? '已刷新' : '', models }
     }
-    return { status: 'ready', source: `agy models (${id})`, message: refresh ? '已刷新' : '', models }
+    catalogCache.set(id, { at: Date.now(), value })
+    return value
+  }
+
+  async function catalog(refresh) {
+    return catalogFor(accounts.defaultId(), refresh)
+  }
+
+  // 判断模型 id 是否在指定账号的目录里；目录不可用时返回 null（不做判断，避免误伤）
+  async function modelAvailable(accountId, modelId) {
+    if (!modelId) return null
+    const cat = await catalogFor(accountId, false)
+    if (cat.status !== 'ready' || !cat.models.length) return null
+    return cat.models.some((m) => m.id === modelId)
   }
 
   step('commands+rpc begin')
@@ -304,7 +326,16 @@ export function apply(ctx) {
   })
   reg('accounts.default', async (input) => {
     if (input.id && !accounts.has(input.id)) throw new Error('账号不存在')
-    writeSettings({ ...readSettings(), defaultAccount: input.id })
+    const prev = readSettings()
+    writeSettings({ ...prev, defaultAccount: input.id })
+    // 切换默认账号后，校验当前默认模型是否仍在新账号目录中；不在则回退为空，让 agy 用该账号默认模型
+    const newId = input.id || accounts.defaultId()
+    if (prev.defaultModel) {
+      const available = await modelAvailable(newId, prev.defaultModel)
+      if (available === false) {
+        writeSettings({ ...readSettings(), defaultModel: '' })
+      }
+    }
     return snapshot()
   })
   reg('accounts.import-global', async () => {
@@ -323,6 +354,10 @@ export function apply(ctx) {
   reg('models.list', async () => catalog(true))
   reg('models.set-default', async (input) => {
     const model = String(input.model || '').trim()
+    if (model) {
+      const available = await modelAvailable(accounts.defaultId(), model)
+      if (available === false) throw new Error(`模型 ${model} 不在当前默认账号（${accounts.defaultId()}）的目录中`)
+    }
     writeSettings({ ...readSettings(), defaultModel: model })
     const syncedSessions = []
     let syncedCount = 0
@@ -567,8 +602,18 @@ export function apply(ctx) {
             }
             const model = runCtx.mode === 'global' ? (runCtx.model?.model || '') : ''
             const effort = runCtx.mode === 'global' ? (runCtx.model?.reasoningEffort || '') : ''
-            const finalModel = model || binding.model || readSettings().defaultModel
+            let finalModel = model || binding.model || readSettings().defaultModel
             const finalEffort = effort || binding.effort || readSettings().defaultEffort
+
+            // 关键：模型必须存在于「实际使用的账号」目录中，否则 agy 会直接报 invalid model selection。
+            // 会话模型来自全局模型选择器（展示的是默认账号目录），但会话可能绑定到其它账号，两者可能错配。
+            if (finalModel) {
+              const available = await modelAvailable(accountId, finalModel)
+              if (available === false) {
+                await runCtx.output.emit({ type: 'status', phase: 'working', message: `模型 ${finalModel} 在账号 ${accountId} 下不可用，已回退到该账号默认模型` })
+                finalModel = ''
+              }
+            }
 
             const args = ['--dangerously-skip-permissions', '--output-format', 'stream-json']
             if (finalModel) args.push('--model', finalModel)
