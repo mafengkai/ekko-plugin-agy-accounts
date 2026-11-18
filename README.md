@@ -1,10 +1,10 @@
 # 反重力多账号 · Ekko Studio 插件 (agy-accounts)
 
 > 以官方 **Google Antigravity（`agy`）CLI** 为执行引擎的 Ekko Studio 智能体插件。
-> 在 Studio 里维护一个本地 Google 账号池：网页内完成 OAuth 导入、验证凭据、切换全局默认账号与默认模型，并自动同步已存在的反重力会话。
+> 在 Studio 里维护一个本地 Google 账号池：网页内完成 OAuth 导入、验证凭据、全局切换默认账号与默认模型（切换即同步内置反重力智能体的全局登录），并自动同步已存在的反重力会话。
 
 [![ci](https://github.com/mafengkai/ekko-plugin-agy-accounts/actions/workflows/ci.yml/badge.svg)](https://github.com/mafengkai/ekko-plugin-agy-accounts/actions/workflows/ci.yml)
-[![version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/mafengkai/ekko-plugin-agy-accounts/releases)
+[![version](https://img.shields.io/badge/version-1.4.5-blue.svg)](https://github.com/mafengkai/ekko-plugin-agy-accounts/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Ekko Studio](https://img.shields.io/badge/Ekko%20Studio-plugin%20api%20v1-6f42c1.svg)](https://github.com/mafengkai/ekko-plugin-agy-accounts)
 
@@ -34,9 +34,9 @@
 
 ### 方式一：Studio 插件中心（推荐）
 
-**已提交官方插件市场审核**（提交时间 2026-11-15，状态：等待管理员审核）。审核通过后会出现在插件中心「全部」目录里，直接点安装即可，无需粘贴地址。
+**已上架 Ekko Studio 官方插件市场**（2026-11-15 通过审核）。在插件中心「全部」目录里直接点安装即可，无需粘贴地址。
 
-审核通过前，或想立刻使用，用下面的地址安装：
+想立刻使用（或插件中心尚未刷新到最新版），用下面的地址安装：
 
 1. Ekko Studio → 左下角头像 → **设置** → **插件中心** → **安装插件**
 2. 来源填入本仓库地址：
@@ -89,7 +89,7 @@ curl -X POST http://127.0.0.1:<studio-port>/api/studio/plugins/install \
 | `/agy-accounts:model` | 查看当前模型与目录 |
 | `/agy-accounts:model <id>` | 该会话改用指定模型（`default` 复位） |
 
-设置页的「默认账号 / 默认模型」是**全局**的：保存默认模型会顺带同步所有存量反重力会话的模型字段。
+设置页的「默认账号 / 默认模型」是**全局**的：切换默认账号会同步内置反重力智能体的全局登录，保存默认模型会顺带同步所有存量反重力会话的模型字段。
 
 ---
 
@@ -143,8 +143,7 @@ docs/                 宿主契约参考文档
 
 An Ekko Studio plugin that turns Google's official Antigravity (`agy`) CLI into a multi-account agent:
 a local Google account pool (in-browser OAuth import, token paste, or importing the host's existing `agy`
-login), per-account credential verification, global default account/model switching with retroactive
-session sync, and in-session switching via `/agy-accounts:account` and `/agy-accounts:model`.
+login), per-account credential verification, global default account/model switching (which also syncs the built-in Antigravity agent's global login) with retroactive session sync, and in-session switching via `/agy-accounts:account` and `/agy-accounts:model`.
 
 Requirements: Ekko Studio with plugin API v1, the `agy` CLI on `PATH` (or `AGY_BIN`), and Python 3 with
 `pty` for the in-browser OAuth helper (token import works without it). Linux/macOS/WSL are fully supported;
