@@ -98,7 +98,11 @@ export async function mount(root, ctx) {
     try {
       state = await ctx.rpc.call('accounts.default', { id })
       renderDefaultSelect()
-      say(id ? `默认账号已设为 ${id}，对所有反重力会话全局生效` : '已清除默认账号')
+      const acc = state.accounts.find((a) => a.id === id)
+      say(id ? `默认账号已设为 ${id}${acc?.email ? ` (${acc.email})` : ''}，对所有反重力会话全局生效` : '已清除默认账号')
+      await refreshModels()
+      const settings = await ctx.rpc.call('settings.get', {})
+      if (settings.defaultModel) modelSelect.value = settings.defaultModel
     } catch (e) { say(e.message, true); renderDefaultSelect() }
   }
 
@@ -162,7 +166,18 @@ export async function mount(root, ctx) {
   // 1. 默认账号
   wrap.append(el('h2', { textContent: '默认账号' }))
   wrap.append(el('p', { className: 'hint', textContent: '下拉选择的是全局默认账号，对所有反重力会话立即生效；单个会话里可用 /agy-accounts:account <id> 临时切换。' }))
-  wrap.append(el('div', { className: 'line' }, defaultSelect))
+  const refreshBtn = el('button', { textContent: '刷新' })
+  refreshBtn.onclick = async () => {
+    try {
+      state = await ctx.rpc.call('accounts.list', {})
+      renderAccounts(); renderDefaultSelect()
+      const settings = await ctx.rpc.call('settings.get', {})
+      await refreshModels()
+      if (settings.defaultModel) modelSelect.value = settings.defaultModel
+      say('已刷新账号与模型')
+    } catch (e) { say(`刷新失败：${e.message}`, true) }
+  }
+  wrap.append(el('div', { className: 'line' }, defaultSelect, refreshBtn))
 
   // 2. 账号列表
   wrap.append(el('h2', { textContent: 'Google 账号' }))

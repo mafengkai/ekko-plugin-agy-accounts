@@ -101,7 +101,7 @@ const SECRETS = [
   [/[A-Za-z0-9._%+-]+@(?:gmail\.com|googlemail\.com)/i, '真实 Gmail 地址'],
   [/\b(?:129\.225\.144\.178|137\.131\.37\.85)\b/, '服务器 IP'],
 ]
-const scanTargets = ['plugin.json', 'package.json', 'README.md', 'server.mjs', 'client.mjs', 'contracts/plugin.json',
+const scanTargets = ['plugin.json', 'package.json', 'README.md', 'CHANGELOG.md', 'server.mjs', 'client.mjs', 'contracts/plugin.json',
   ...readdirSync(join(root, 'scripts')).map((f) => join('scripts', f)),
   ...(existsSync(join(root, 'docs')) ? readdirSync(join(root, 'docs')).map((f) => join('docs', f)) : [])]
 for (const file of scanTargets) {
